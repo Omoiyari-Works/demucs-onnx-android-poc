@@ -1,0 +1,76 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.omoiyariworks.demucspoc'
+    compileSdk 36
+    ndkVersion "29.0.14206865"
+
+    defaultConfig {
+        applicationId "com.omoiyariworks.demucspoc"
+        minSdk 29
+        targetSdk 36
+        versionCode 1
+        versionName "0.1"
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared", "-DONNXRUNTIME_DIR=${layout.buildDirectory.dir('onnxruntime-extracted').get().asFile}"
+            }
+        }
+
+        ndk {
+            // PoC scope: real devices are effectively all arm64-v8a; skipping the
+            // other ABIs keeps the debug APK small enough to hand around.
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "4.1.2"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}
+
+// onnxruntime-android AAR doesn't publish a prefab package, so the C++ headers
+// and .so files needed by CMakeLists.txt are extracted here for the native
+// build to consume (see ONNXRUNTIME_DIR in defaultConfig.externalNativeBuild).
+def onnxRuntimeAarConfig = configurations.create('onnxRuntimeAar')
+dependencies {
+    onnxRuntimeAar 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
+}
+
+tasks.register('extractOnnxRuntimeNative', Copy) {
+    def aarFile = onnxRuntimeAarConfig.resolve().find { it.name.endsWith('.aar') }
+    from(zipTree(aarFile)) {
+        include 'headers/**'
+        include 'jni/**'
+    }
+    into layout.buildDirectory.dir('onnxruntime-extracted')
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith('configureCMake') || it.name.startsWith('buildCMake') }.configureEach {
+        dependsOn extractOnnxRuntimeNative
+    }
+}

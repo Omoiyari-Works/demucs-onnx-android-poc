@@ -1,0 +1,17 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Generated ONNX models (produced by scripts/export_model.py, not committed)
+app/src/main/assets/*.onnx
+
+# Python export environment
+scripts/venv/
+__pycache__/
