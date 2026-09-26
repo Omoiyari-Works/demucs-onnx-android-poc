@@ -12,8 +12,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
 
     companion object {
+        // System.loadLibrary() here would run as a static initializer and, if it
+        // fails, crash the app before onCreate() ever runs with no visible error.
+        // Captured instead so onCreate() can show the failure on screen (there's
+        // no adb/logcat access assumed for whoever is running this PoC build).
+        private var nativeLoadError: Throwable? = null
+
         init {
-            System.loadLibrary("demucspoc")
+            try {
+                System.loadLibrary("demucspoc")
+            } catch (e: Throwable) {
+                nativeLoadError = e
+            }
         }
     }
 
@@ -22,13 +32,19 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val loadError = nativeLoadError
         statusText = TextView(this).apply {
-            text = "Tap the button to check native/ONNX Runtime linkage."
+            text = if (loadError != null) {
+                "native library load FAILED: ${loadError.javaClass.name}: ${loadError.message}"
+            } else {
+                "Tap the button to check native/ONNX Runtime linkage."
+            }
             textSize = 16f
             setPadding(32, 32, 32, 32)
         }
         val checkButton = Button(this).apply {
             text = "Check native link"
+            isEnabled = loadError == null
             setOnClickListener { runLinkCheck() }
         }
 
