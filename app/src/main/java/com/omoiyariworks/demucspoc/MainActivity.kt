@@ -1,6 +1,7 @@
 package com.omoiyariworks.demucspoc
 
 import android.app.Activity
+import android.graphics.Color
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -45,6 +46,9 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi() {
+        // Text/background colors set explicitly rather than left to the theme:
+        // system dark mode can force a light theme's default text color to
+        // white, leaving text present but invisible against a white background.
         val loadError = nativeLoadError
         statusText = TextView(this).apply {
             text = if (loadError != null) {
@@ -53,16 +57,19 @@ class MainActivity : Activity() {
                 "Tap the button to check native/ONNX Runtime linkage."
             }
             textSize = 16f
+            setTextColor(Color.BLACK)
             setPadding(32, 32, 32, 32)
         }
         val checkButton = Button(this).apply {
             text = "Check native link"
+            setTextColor(Color.BLACK)
             isEnabled = loadError == null
             setOnClickListener { runLinkCheck() }
         }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
             addView(statusText)
             addView(checkButton)
         }
