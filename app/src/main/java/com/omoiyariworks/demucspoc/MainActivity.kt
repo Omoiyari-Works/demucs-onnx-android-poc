@@ -1,13 +1,13 @@
 package com.omoiyariworks.demucspoc
 
+import android.app.Activity
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import kotlin.concurrent.thread
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
 
@@ -31,7 +31,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            buildUi()
+        } catch (e: Throwable) {
+            // Same reasoning as nativeLoadError below: nobody running this PoC
+            // build is assumed to have adb/logcat access, so surface it on screen.
+            setContentView(TextView(this).apply {
+                text = "onCreate FAILED: ${e.javaClass.name}: ${e.message}"
+                textSize = 16f
+                setPadding(32, 32, 32, 32)
+            })
+        }
+    }
 
+    private fun buildUi() {
         val loadError = nativeLoadError
         statusText = TextView(this).apply {
             text = if (loadError != null) {
