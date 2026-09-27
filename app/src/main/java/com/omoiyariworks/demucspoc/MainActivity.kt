@@ -3,6 +3,7 @@ package com.omoiyariworks.demucspoc
 import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -35,20 +36,23 @@ class MainActivity : Activity() {
         try {
             buildUi()
         } catch (e: Throwable) {
-            // Same reasoning as nativeLoadError below: nobody running this PoC
-            // build is assumed to have adb/logcat access, so surface it on screen.
+            // Bright, impossible-to-miss colors here: if THIS is what's on
+            // screen, buildUi() itself is throwing (distinct from it silently
+            // laying out invisible/zero-size views).
             setContentView(TextView(this).apply {
                 text = "onCreate FAILED: ${e.javaClass.name}: ${e.message}"
-                textSize = 16f
+                textSize = 20f
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.RED)
                 setPadding(32, 32, 32, 32)
             })
         }
     }
 
     private fun buildUi() {
-        // Text/background colors set explicitly rather than left to the theme:
-        // system dark mode can force a light theme's default text color to
-        // white, leaving text present but invisible against a white background.
+        // Bright, distinct colors + explicit MATCH_PARENT sizing to rule out
+        // both "text color same as background" and "zero-size layout" as
+        // causes of a blank screen, now that black-on-white didn't help.
         val loadError = nativeLoadError
         statusText = TextView(this).apply {
             text = if (loadError != null) {
@@ -56,22 +60,40 @@ class MainActivity : Activity() {
             } else {
                 "Tap the button to check native/ONNX Runtime linkage."
             }
-            textSize = 16f
-            setTextColor(Color.BLACK)
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.BLUE)
             setPadding(32, 32, 32, 32)
         }
         val checkButton = Button(this).apply {
             text = "Check native link"
             setTextColor(Color.BLACK)
+            setBackgroundColor(Color.YELLOW)
             isEnabled = loadError == null
             setOnClickListener { runLinkCheck() }
         }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            addView(statusText)
-            addView(checkButton)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+            setBackgroundColor(Color.GREEN)
+            addView(
+                statusText,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+            addView(
+                checkButton,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
         }
         setContentView(root)
     }
