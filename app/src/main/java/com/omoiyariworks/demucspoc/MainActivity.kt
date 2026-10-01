@@ -7,7 +7,8 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlin.concurrent.thread
 
 class MainActivity : Activity() {
@@ -34,14 +35,6 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Android 15+ (targetSdk 35+) draws app content edge-to-edge by default,
-        // under the status/navigation bars. Without inset handling, top-aligned
-        // views (statusText here) end up rendered behind the status bar —
-        // consistent with "only the title area is visible, green background
-        // shows, but the blue status text never appeared". Opting back into the
-        // pre-edge-to-edge layout behavior for this PoC rather than adding
-        // inset padding everywhere.
-        WindowCompat.setDecorFitsSystemWindows(window, true)
         try {
             buildUi()
         } catch (e: Throwable) {
@@ -104,6 +97,17 @@ class MainActivity : Activity() {
                 ),
             )
         }
+
+        // targetSdk 36 draws content edge-to-edge with no way to opt back out
+        // (setDecorFitsSystemWindows(true) didn't help: status text/button were
+        // still rendered under the status bar). Padding the root by the actual
+        // system bar insets keeps content clear of them instead.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+
         setContentView(root)
     }
 
