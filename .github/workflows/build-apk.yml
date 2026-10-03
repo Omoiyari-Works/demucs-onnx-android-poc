@@ -1,0 +1,41 @@
+name: Build debug APK
+
+# Manual trigger only: this does a full PyTorch model export (demucs-onnx)
+# plus an Android SDK/NDK/Gradle build, which is too slow/heavy to run on
+# every push. Run it from the Actions tab when a build is needed.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Export htdemucs to ONNX
+        run: |
+          pip install demucs-onnx
+          mkdir -p app/src/main/assets
+          demucs-onnx export htdemucs app/src/main/assets/htdemucs.onnx
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK/CMake
+        run: sdkmanager "ndk;29.0.14206865" "cmake;4.1.2"
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demucs-onnx-poc-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
