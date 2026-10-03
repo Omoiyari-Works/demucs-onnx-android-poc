@@ -12,9 +12,11 @@ FlashMashApp本体へのDemucs(音源分離)組み込み前に、Android実機�
 学習済みONNXモデル(`htdemucs.onnx`, 約300MB)はサイズが大きいため、このリポジトリには含めていない。開発時に以下の手順でローカル生成する。
 
 ```bash
-pip install demucs-onnx
+pip install 'demucs-onnx[export]'
 demucs-onnx export htdemucs app/src/main/assets/htdemucs.onnx
 ```
+
+CIでも同じ手順でモデルを生成してからビルドする(`.github/workflows/build-apk.yml`、Actionsタブから手動トリガー、ビルド結果はWorkflow run artifactとしてダウンロード可能)。モデルファイル自体はリポジトリにコミットしていない。
 
 内部で公式のPyTorchチェックポイント(Meta配布)をダウンロードし、STFT等の互換パッチを当てた上でONNXへ変換する(エクスポート成功済み、PyTorch↔ONNX数値差はmax abs diff 0.000669で検証済み)。
 

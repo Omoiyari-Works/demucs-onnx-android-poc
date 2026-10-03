@@ -18,7 +18,7 @@ jobs:
 
       - name: Export htdemucs to ONNX
         run: |
-          pip install demucs-onnx
+          pip install 'demucs-onnx[export]'
           mkdir -p app/src/main/assets
           demucs-onnx export htdemucs app/src/main/assets/htdemucs.onnx
 
