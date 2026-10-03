@@ -29,14 +29,16 @@ jobs:
 
       - name: Install SDK/NDK/CMake packages
         # ubuntu-latest runners ship with an Android SDK preinstalled
-        # (ANDROID_HOME/ANDROID_SDK_ROOT already point at it, sdkmanager
-        # already on PATH). Setting a second ANDROID_HOME ourselves made AGP
-        # fail outright with "Several environment variables ... contain
+        # (ANDROID_HOME/ANDROID_SDK_ROOT already point at it), but its
+        # cmdline-tools/sdkmanager aren't on PATH, hence the explicit path
+        # below. Setting a second ANDROID_HOME ourselves made AGP fail
+        # outright with "Several environment variables ... contain
         # different paths to the SDK", so this just adds packages to the
         # SDK that's already there instead of installing a separate one.
         run: |
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;4.1.2"
+          SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager -path '*/bin/*' | sort -V | tail -1)"
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;4.1.2"
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
