@@ -27,27 +27,16 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Set up Android SDK
-        # android-actions/setup-android@v3 shells out to `sdkmanager tools`,
-        # a package Google dropped from the SDK repo; that call now fails
-        # outright. Setting up cmdline-tools directly avoids it (same steps
-        # verified working by hand in the local dev environment).
-        run: |
-          SDK_ROOT="$HOME/android-sdk"
-          mkdir -p "$SDK_ROOT/cmdline-tools"
-          curl -sS -L -o /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
-          unzip -q /tmp/cmdline-tools.zip -d "$SDK_ROOT/cmdline-tools_tmp"
-          mkdir -p "$SDK_ROOT/cmdline-tools/latest"
-          mv "$SDK_ROOT/cmdline-tools_tmp/cmdline-tools/"* "$SDK_ROOT/cmdline-tools/latest/"
-          rm -rf "$SDK_ROOT/cmdline-tools_tmp"
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-
       - name: Install SDK/NDK/CMake packages
+        # ubuntu-latest runners ship with an Android SDK preinstalled
+        # (ANDROID_HOME/ANDROID_SDK_ROOT already point at it, sdkmanager
+        # already on PATH). Setting a second ANDROID_HOME ourselves made AGP
+        # fail outright with "Several environment variables ... contain
+        # different paths to the SDK", so this just adds packages to the
+        # SDK that's already there instead of installing a separate one.
         run: |
           yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;4.1.2"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;4.1.2"
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
