@@ -44,11 +44,20 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    // Without this, aapt2 deflate-compresses .onnx in the APK and
+    // AAsset_getBuffer() (used for a zero-copy model load, see
+    // DemucsSeparator) can no longer mmap it directly.
+    androidResources {
+        noCompress += "onnx"
+    }
 }
 
 dependencies {
     implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
     implementation 'androidx.core:core-ktx:1.15.0'
+    // ComponentActivity + registerForActivityResult, for the file picker (SAF).
+    implementation 'androidx.activity:activity-ktx:1.9.3'
 }
 
 // onnxruntime-android AAR doesn't publish a prefab package, so the C++ headers

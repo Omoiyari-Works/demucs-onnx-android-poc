@@ -4,8 +4,10 @@ FlashMashApp本体へのDemucs(音源分離)組み込み前に、Android実機�
 
 ## 現在の状態
 
-- Kotlin UI + C++(JNI)からONNX Runtime C++ APIを呼び出す最小疎通確認(フェーズ4)まで完了
-- 実際の音源分離処理(モデル読み込み・segment分割・推論)は未実装
+- Kotlin UI + C++(JNI)からONNX Runtime C++ APIを呼び出す最小疎通確認(フェーズ4)完了
+- 実際の音源分離処理(モデル読み込み・segment分割・推論・overlap-add・vocals書き出し)まで実装済み(フェーズ5)
+- 使い方: アプリ内「Pick WAV & separate vocals」ボタンで44.1kHz/ステレオ/16bit PCMのWAVファイルを選択すると、vocalsのみ分離してWAV書き出しし、「Play separated vocals」ボタンで再生確認できる。処理時間(モデルロード/前処理/推論/後処理/End-to-End)は画面とLogcat(タグ`DemucsPoc`)に出力される
+- MP3等の他フォーマットには対応していない(検証優先のため今回はスコープ外。将来のOSS化時に追加予定)
 
 ## モデルファイルについて
 
@@ -35,7 +37,5 @@ ONNX Runtime Android AAR(`com.microsoft.onnxruntime:onnxruntime-android`)はpref
 
 ## 今後の予定
 
-1. `htdemucs.onnx`をassetsに配置し、C++側でONNX Runtimeセッションを初期化してダミー推論を通す
-2. `demucs_onnx`(Python版、`inference.py`)のsegment分割・overlap-addロジックをC++に移植
-3. 実際の音声ファイルを分離し、モデルロード時間/推論時間/全体時間をLogcatに出力
-4. PC実測値(htdemucs ONNX Runtime CPU EP: 推論120.69秒, End-to-End 156.67秒, 曲長240秒)との比較
+1. 実機でPC実測値(htdemucs ONNX Runtime CPU EP: 推論120.69秒, End-to-End 156.67秒, 曲長240秒)と処理時間を比較
+2. (将来のOSS化時)MP3等の他フォーマット対応、4音源すべての分離・書き出し

@@ -1,21 +1,36 @@
 package com.omoiyariworks.demucspoc
 
-import android.app.Activity
+import android.content.res.AssetManager
 import android.graphics.Color
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import java.io.File
 import kotlin.concurrent.thread
 
-class MainActivity : Activity() {
+private const val LOG_TAG = "DemucsPoc"
+
+class MainActivity : ComponentActivity() {
 
     private lateinit var statusText: TextView
+    private lateinit var pickButton: Button
+    private lateinit var playButton: Button
+    private var lastOutputWavPath: String? = null
 
     companion object {
+        private const val MODEL_ASSET_NAME = "htdemucs.onnx"
+        private const val INPUT_WAV_FILE_NAME = "demucspoc_input.wav"
+        private const val OUTPUT_WAV_FILE_NAME = "demucspoc_vocals.wav"
+
         // System.loadLibrary() here would run as a static initializer and, if it
         // fails, crash the app before onCreate() ever runs with no visible error.
         // Captured instead so onCreate() can show the failure on screen (there's
@@ -32,6 +47,20 @@ class MainActivity : Activity() {
     }
 
     private external fun nativeGetOrtVersion(): String
+
+    // Returns [modelLoadMs, preprocessMs, inferenceMs, postprocessMs, endToEndMs].
+    private external fun nativeSeparateVocals(
+        assetManager: AssetManager,
+        modelAssetName: String,
+        inputWavPath: String,
+        outputWavPath: String,
+    ): LongArray
+
+    private val pickAudioLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runSeparation(uri)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,15 +81,13 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi() {
-        // Bright, distinct colors + explicit MATCH_PARENT sizing to rule out
-        // both "text color same as background" and "zero-size layout" as
-        // causes of a blank screen, now that black-on-white didn't help.
         val loadError = nativeLoadError
         statusText = TextView(this).apply {
             text = if (loadError != null) {
                 "native library load FAILED: ${loadError.javaClass.name}: ${loadError.message}"
             } else {
-                "Tap the button to check native/ONNX Runtime linkage."
+                "Tap \"Check native link\" to verify ONNX Runtime linkage, or pick a WAV" +
+                    " (44100Hz/stereo/16-bit PCM) to separate vocals."
             }
             textSize = 20f
             setTextColor(Color.WHITE)
@@ -73,6 +100,20 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.YELLOW)
             isEnabled = loadError == null
             setOnClickListener { runLinkCheck() }
+        }
+        pickButton = Button(this).apply {
+            text = "Pick WAV & separate vocals"
+            setTextColor(Color.BLACK)
+            setBackgroundColor(Color.YELLOW)
+            isEnabled = loadError == null
+            setOnClickListener { pickAudioLauncher.launch(arrayOf("audio/*")) }
+        }
+        playButton = Button(this).apply {
+            text = "Play separated vocals"
+            setTextColor(Color.BLACK)
+            setBackgroundColor(Color.YELLOW)
+            isEnabled = false
+            setOnClickListener { playLastOutput() }
         }
 
         val root = LinearLayout(this).apply {
@@ -91,6 +132,20 @@ class MainActivity : Activity() {
             )
             addView(
                 checkButton,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+            addView(
+                pickButton,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+            addView(
+                playButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -120,6 +175,62 @@ class MainActivity : Activity() {
                 "native link check FAILED: ${e.message}"
             }
             runOnUiThread { statusText.text = result }
+        }
+    }
+
+    private fun runSeparation(sourceUri: Uri) {
+        statusText.text = "Copying selected file..."
+        pickButton.isEnabled = false
+        playButton.isEnabled = false
+
+        thread {
+            val startMs = System.currentTimeMillis()
+            val result = try {
+                val inputWavFile = File(cacheDir, INPUT_WAV_FILE_NAME)
+                contentResolver.openInputStream(sourceUri)?.use { input ->
+                    inputWavFile.outputStream().use { output -> input.copyTo(output) }
+                } ?: throw IllegalStateException("could not open selected file")
+                val copyMs = System.currentTimeMillis() - startMs
+
+                val outputWavFile = File(cacheDir, OUTPUT_WAV_FILE_NAME)
+                val timings = nativeSeparateVocals(
+                    assets,
+                    MODEL_ASSET_NAME,
+                    inputWavFile.absolutePath,
+                    outputWavFile.absolutePath,
+                )
+                val totalMs = System.currentTimeMillis() - startMs
+                lastOutputWavPath = outputWavFile.absolutePath
+
+                val summary = "copy=${copyMs}ms model_load=${timings[0]}ms preprocess=${timings[1]}ms " +
+                    "inference=${timings[2]}ms postprocess=${timings[3]}ms native_e2e=${timings[4]}ms " +
+                    "total(incl. copy)=${totalMs}ms"
+                Log.i(LOG_TAG, "separation timings: $summary output=${outputWavFile.absolutePath}")
+
+                "Done.\n$summary\noutput=${outputWavFile.absolutePath}"
+            } catch (e: Throwable) {
+                Log.e(LOG_TAG, "separation failed", e)
+                "Separation FAILED: ${e.javaClass.name}: ${e.message}"
+            }
+            runOnUiThread {
+                statusText.text = result
+                pickButton.isEnabled = true
+                playButton.isEnabled = lastOutputWavPath != null
+            }
+        }
+    }
+
+    private fun playLastOutput() {
+        val path = lastOutputWavPath ?: return
+        try {
+            MediaPlayer().apply {
+                setDataSource(path)
+                prepare()
+                start()
+                setOnCompletionListener { release() }
+            }
+        } catch (e: Throwable) {
+            statusText.text = "Playback FAILED: ${e.message}"
         }
     }
 }
